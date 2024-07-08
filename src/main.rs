@@ -53,6 +53,8 @@ async fn main() -> anyhow::Result<()> {
     let yaml = load_yaml!("cli.yml");
     let cli_configs = App::from_yaml(yaml).get_matches();
 
+    debug!("!!!!!!!!!!!Starting");
+
     // Subcommands
     match cli_configs.subcommand() {
         ("generate", Some(sc)) => {
@@ -151,8 +153,14 @@ and then put real values there.",
 
     let gauges = PrometheusGauges::new(vote_accounts_whitelist.clone());
     let mut skipped_slots_monitor = if enable_skipped_slots {
-        Some(SkippedSlotsMonitor::new(&client, &gauges.leader_slots, &gauges.skipped_slot_percent))
-    } else { None };
+        Some(SkippedSlotsMonitor::new(
+            &client,
+            &gauges.leader_slots,
+            &gauges.skipped_slot_percent,
+        ))
+    } else {
+        None
+    };
 
     let rewards_monitor = if enable_rewards {
         Some(RewardsMonitor::new(
@@ -163,11 +171,14 @@ and then put real values there.",
             &rewards_cache,
             &staking_account_whitelist,
             &vote_accounts_whitelist,
-        ) ) } else { None };
+        ))
+    } else {
+        None
+    };
 
     loop {
         let _guard = exporter.wait_duration(duration);
-        debug!("Updating metrics");
+        debug!("!!!!!!!!!!!!!!!Updating metrics");
 
         // Get metrics we need
         let epoch_info = client.get_epoch_info()?;
@@ -178,32 +189,35 @@ and then put real values there.",
         gauges
             .export_vote_accounts(&vote_accounts)
             .context("Failed to export vote account metrics")?;
-        gauges
-            .export_epoch_info(&epoch_info, &client)
-            .context("Failed to export epoch info metrics")?;
+        // gauges
+        //     .export_epoch_info(&epoch_info, &client)
+        //     .context("Failed to export epoch info metrics")?;
         gauges.export_nodes_info(&nodes, &client, &node_whitelist)?;
-        if let Some(maxmind) = config.maxmind.clone() {
-            // If the MaxMind API is configured, submit queries for any uncached IPs.
-            gauges
-                .export_ip_addresses(
-                    &nodes,
-                    &vote_accounts,
-                    &geolocation_cache,
-                    &maxmind,
-                    &node_whitelist,
-                )
-                .await
-                .context("Failed to export IP address info metrics")?;
-        }
+        // if let Some(maxmind) = config.maxmind.clone() {
+        //     // If the MaxMind API is configured, submit queries for any uncached IPs.
+        //     gauges
+        //         .export_ip_addresses(
+        //             &nodes,
+        //             &vote_accounts,
+        //             &geolocation_cache,
+        //             &maxmind,
+        //             &node_whitelist,
+        //         )
+        //         .await
+        //         .context("Failed to export IP address info metrics")?;
+        // }
 
-        if enable_skipped_slots {
-            skipped_slots_monitor.as_mut().unwrap().export_skipped_slots(&epoch_info, &node_whitelist)
-              .context("Failed to export skipped slots")?;
-        }
+        // if enable_skipped_slots {
+        //     skipped_slots_monitor
+        //         .as_mut()
+        //         .unwrap()
+        //         .export_skipped_slots(&epoch_info, &node_whitelist)
+        //         .context("Failed to export skipped slots")?;
+        // }
 
-        if let Some(x) = &rewards_monitor {
-            x.export_rewards(&epoch_info)
-                .context("Failed to export rewards")?;
-        } 
+        // if let Some(x) = &rewards_monitor {
+        //     x.export_rewards(&epoch_info)
+        //         .context("Failed to export rewards")?;
+        // }
     }
 }
